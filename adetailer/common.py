@@ -1,69 +1,107 @@
 from __future__ import annotations
 
+import os
 from collections import OrderedDict
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import suppress
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Optional, Union
+from typing import Any, Generic, Optional, TypeVar
 
 from huggingface_hub import hf_hub_download
 from PIL import Image, ImageDraw
 from rich import print
+from torchvision.transforms.functional import to_pil_image
 
-repo_id = "Bingsu/adetailer"
-_download_failed = False
+REPO_ID = "Bingsu/adetailer"
+
+T = TypeVar("T", int, float)
 
 
 @dataclass
-class PredictOutput:
-    bboxes: list[list[int | float]] = field(default_factory=list)
+class PredictOutput(Generic[T]):
+    bboxes: list[list[T]] = field(default_factory=list)
     masks: list[Image.Image] = field(default_factory=list)
     preview: Optional[Image.Image] = None
 
 
-def hf_download(file: str):
-    global _download_failed
+def hf_download(file: str, repo_id: str = REPO_ID, check_remote: bool = True) -> str:
+    if check_remote:
+        with suppress(Exception):
+            return hf_hub_download(repo_id, file, etag_timeout=1)
 
-    if _download_failed:
-        return "INVALID"
+        with suppress(Exception):
+            return hf_hub_download(
+                repo_id, file, etag_timeout=1, endpoint="https://hf-mirror.com"
+            )
 
-    try:
-        path = hf_hub_download(repo_id, file)
-    except Exception:
-        msg = f"[-] ADetailer: Failed to load model {file!r} from huggingface"
-        print(msg)
-        path = "INVALID"
-        _download_failed = True
-    return path
+    with suppress(Exception):
+        return hf_hub_download(repo_id, file, local_files_only=True)
+
+    msg = f"[-] ADetailer: Failed to load model {file!r} from huggingface"
+    print(msg)
+    return "INVALID"
 
 
-def scan_model_dir(path_: str | Path) -> list[Path]:
-    if not path_ or not (path := Path(path_)).is_dir():
+def safe_mkdir(path: str | os.PathLike[str]) -> None:
+    path = Path(path)
+    if not path.exists() and path.parent.exists() and os.access(path.parent, os.W_OK):
+        path.mkdir()
+
+
+def scan_model_dir(path: Path) -> list[Path]:
+    if not path.is_dir():
         return []
-    return [p for p in path.rglob("*") if p.is_file() and p.suffix in (".pt", ".pth")]
+    return [p for p in path.rglob("*") if p.is_file() and p.suffix == ".pt"]
+
+
+def download_models(*names: str, check_remote: bool = True) -> dict[str, str]:
+    models = OrderedDict()
+    with ThreadPoolExecutor() as executor:
+        for name in names:
+            if "-world" in name:
+                models[name] = executor.submit(
+                    hf_download,
+                    name,
+                    repo_id="Bingsu/yolo-world-mirror",
+                    check_remote=check_remote,
+                )
+            else:
+                models[name] = executor.submit(
+                    hf_download,
+                    name,
+                    check_remote=check_remote,
+                )
+    return {name: future.result() for name, future in models.items()}
 
 
 def get_models(
-    model_dir: str | Path, extra_dir: str | Path = "", huggingface: bool = True
-) -> OrderedDict[str, str | None]:
-    model_paths = [*scan_model_dir(model_dir), *scan_model_dir(extra_dir)]
+    *dirs: str | os.PathLike[str], huggingface: bool = True
+) -> OrderedDict[str, str]:
+    model_paths = []
+
+    for dir_ in dirs:
+        if not dir_:
+            continue
+        model_paths.extend(scan_model_dir(Path(dir_)))
 
     models = OrderedDict()
-    if huggingface:
-        models.update(
-            {
-                "face_yolov8n.pt": hf_download("face_yolov8n.pt"),
-                "face_yolov8s.pt": hf_download("face_yolov8s.pt"),
-                "hand_yolov8n.pt": hf_download("hand_yolov8n.pt"),
-                "person_yolov8n-seg.pt": hf_download("person_yolov8n-seg.pt"),
-                "person_yolov8s-seg.pt": hf_download("person_yolov8s-seg.pt"),
-            }
-        )
+    to_download = [
+        "face_yolov8n.pt",
+        "face_yolov8s.pt",
+        "hand_yolov8n.pt",
+        "person_yolov8n-seg.pt",
+        "person_yolov8s-seg.pt",
+        "yolov8x-worldv2.pt",
+    ]
+    models.update(download_models(*to_download, check_remote=huggingface))
+
     models.update(
         {
-            "mediapipe_face_full": None,
-            "mediapipe_face_short": None,
-            "mediapipe_face_mesh": None,
-            "mediapipe_face_mesh_eyes_only": None,
+            "mediapipe_face_full": "mediapipe_face_full",
+            "mediapipe_face_short": "mediapipe_face_short",
+            "mediapipe_face_mesh": "mediapipe_face_mesh",
+            "mediapipe_face_mesh_eyes_only": "mediapipe_face_mesh_eyes_only",
         }
     )
 
@@ -125,8 +163,16 @@ def create_bbox_from_mask(
     """
     bboxes = []
     for mask in masks:
-        mask = mask.resize(shape)
+        mask = mask.resize(shape)  # noqa: PLW2901
         bbox = mask.getbbox()
         if bbox is not None:
             bboxes.append(list(bbox))
     return bboxes
+
+
+def ensure_pil_image(image: Any, mode: str = "RGB") -> Image.Image:
+    if not isinstance(image, Image.Image):
+        image = to_pil_image(image)
+    if image.mode != mode:
+        image = image.convert(mode)
+    return image

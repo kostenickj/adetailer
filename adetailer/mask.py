@@ -3,13 +3,14 @@ from __future__ import annotations
 from enum import IntEnum
 from functools import partial, reduce
 from math import dist
+from typing import Any, TypeVar
 
 import cv2
 import numpy as np
 from PIL import Image, ImageChops
 
 from adetailer.args import MASK_MERGE_INVERT
-from adetailer.common import PredictOutput
+from adetailer.common import PredictOutput, ensure_pil_image
 
 
 class SortBy(IntEnum):
@@ -23,6 +24,9 @@ class MergeInvert(IntEnum):
     NONE = 0
     MERGE = 1
     MERGE_INVERT = 2
+
+
+T = TypeVar("T", int, float)
 
 
 def _dilate(arr: np.ndarray, value: int) -> np.ndarray:
@@ -83,12 +87,19 @@ def offset(img: Image.Image, x: int = 0, y: int = 0) -> Image.Image:
     return ImageChops.offset(img, x, -y)
 
 
-def is_all_black(img: Image.Image) -> bool:
-    arr = np.array(img)
-    return cv2.countNonZero(arr) == 0
+def is_all_black(img: Image.Image | np.ndarray) -> bool:
+    if isinstance(img, Image.Image):
+        img = np.array(ensure_pil_image(img, "L"))
+    return cv2.countNonZero(img) == 0
 
 
-def bbox_area(bbox: list[float]):
+def has_intersection(im1: Any, im2: Any) -> bool:
+    arr1 = np.array(ensure_pil_image(im1, "L"))
+    arr2 = np.array(ensure_pil_image(im2, "L"))
+    return not is_all_black(cv2.bitwise_and(arr1, arr2))
+
+
+def bbox_area(bbox: list[T]) -> T:
     return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
 
 
@@ -133,25 +144,25 @@ def mask_preprocess(
 
 
 # Bbox sorting
-def _key_left_to_right(bbox: list[float]) -> float:
+def _key_left_to_right(bbox: list[T]) -> T:
     """
     Left to right
 
     Parameters
     ----------
-    bbox: list[float]
+    bbox: list[int] | list[float]
         list of [x1, y1, x2, y2]
     """
     return bbox[0]
 
 
-def _key_center_to_edge(bbox: list[float], *, center: tuple[float, float]) -> float:
+def _key_center_to_edge(bbox: list[T], *, center: tuple[float, float]) -> float:
     """
     Center to edge
 
     Parameters
     ----------
-    bbox: list[float]
+    bbox: list[int] | list[float]
         list of [x1, y1, x2, y2]
     image: Image.Image
         the image
@@ -160,21 +171,21 @@ def _key_center_to_edge(bbox: list[float], *, center: tuple[float, float]) -> fl
     return dist(center, bbox_center)
 
 
-def _key_area(bbox: list[float]) -> float:
+def _key_area(bbox: list[T]) -> T:
     """
     Large to small
 
     Parameters
     ----------
-    bbox: list[float]
+    bbox: list[int] | list[float]
         list of [x1, y1, x2, y2]
     """
     return -bbox_area(bbox)
 
 
 def sort_bboxes(
-    pred: PredictOutput, order: int | SortBy = SortBy.NONE
-) -> PredictOutput:
+    pred: PredictOutput[T], order: int | SortBy = SortBy.NONE
+) -> PredictOutput[T]:
     if order == SortBy.NONE or len(pred.bboxes) <= 1:
         return pred
 
@@ -197,12 +208,14 @@ def sort_bboxes(
 
 
 # Filter by ratio
-def is_in_ratio(bbox: list[float], low: float, high: float, orig_area: int) -> bool:
+def is_in_ratio(bbox: list[T], low: float, high: float, orig_area: int) -> bool:
     area = bbox_area(bbox)
     return low <= area / orig_area <= high
 
 
-def filter_by_ratio(pred: PredictOutput, low: float, high: float) -> PredictOutput:
+def filter_by_ratio(
+    pred: PredictOutput[T], low: float, high: float
+) -> PredictOutput[T]:
     if not pred.bboxes:
         return pred
 
@@ -215,7 +228,7 @@ def filter_by_ratio(pred: PredictOutput, low: float, high: float) -> PredictOutp
     return pred
 
 
-def filter_k_largest(pred: PredictOutput, k: int = 0, invert: bool = False) -> PredictOutput:
+def filter_k_largest(pred: PredictOutput[T], k: int = 0, invert: bool = False) -> PredictOutput[T]:
     if not pred.bboxes or k == 0:
         return pred
     areas = [bbox_area(bbox) for bbox in pred.bboxes]

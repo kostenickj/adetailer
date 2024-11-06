@@ -3,15 +3,18 @@ from __future__ import annotations
 import io
 import platform
 import sys
+from collections.abc import Callable
 from importlib.metadata import version
-from typing import Any, Callable
+from typing import Any, TypeVar
 
 from rich.console import Console, Group
 from rich.panel import Panel
 from rich.table import Table
 from rich.traceback import Traceback
+from typing_extensions import ParamSpec
 
 from adetailer.__version__ import __version__
+from adetailer.args import ADetailerArgs
 
 
 def processing(*args: Any) -> dict[str, Any]:
@@ -66,23 +69,30 @@ def sd_models() -> dict[str, str]:
 
 
 def ad_args(*args: Any) -> dict[str, Any]:
-    ad_args = [
-        arg
-        for arg in args
-        if isinstance(arg, dict) and arg.get("ad_model", "None") != "None"
-    ]
+    ad_args = []
+    for arg in args:
+        if not isinstance(arg, dict):
+            continue
+
+        try:
+            a = ADetailerArgs(**arg)
+        except ValueError:
+            continue
+
+        if not a.need_skip():
+            ad_args.append(a)
+
     if not ad_args:
         return {}
 
     arg0 = ad_args[0]
-    is_api = arg0.get("is_api", True)
     return {
         "version": __version__,
-        "ad_model": arg0["ad_model"],
-        "ad_prompt": arg0.get("ad_prompt", ""),
-        "ad_negative_prompt": arg0.get("ad_negative_prompt", ""),
-        "ad_controlnet_model": arg0.get("ad_controlnet_model", "None"),
-        "is_api": type(is_api) is not tuple,
+        "ad_model": arg0.ad_model,
+        "ad_prompt": arg0.ad_prompt,
+        "ad_negative_prompt": arg0.ad_negative_prompt,
+        "ad_controlnet_model": arg0.ad_controlnet_model,
+        "is_api": arg0.is_api,
     }
 
 
@@ -123,13 +133,17 @@ def get_table(title: str, data: dict[str, Any]) -> Table:
     table.add_column("Value")
     for key, value in data.items():
         if not isinstance(value, str):
-            value = repr(value)
+            value = repr(value)  # noqa: PLW2901
         table.add_row(key, value)
 
     return table
 
 
-def rich_traceback(func: Callable) -> Callable:
+P = ParamSpec("P")
+T = TypeVar("T")
+
+
+def rich_traceback(func: Callable[P, T]) -> Callable[P, T]:
     def wrapper(*args, **kwargs):
         string = io.StringIO()
         width = Console().width

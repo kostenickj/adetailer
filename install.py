@@ -38,19 +38,18 @@ def is_installed(
 
 
 def run_pip(*args):
-    subprocess.run([sys.executable, "-m", "pip", "install", *args])
+    subprocess.run([sys.executable, "-m", "pip", "install", *args], check=True)
 
 
 def install():
     deps = [
         # requirements
-        ("ultralytics", "8.0.209", None),
-        ("mediapipe", "0.10.8", None),
+        ("ultralytics", "8.2.0", None),
+        ("mediapipe", "0.10.13", None),
         ("rich", "13.0.0", None),
-        # mediapipe
-        ("protobuf", "3.20", "3.9999"),
     ]
 
+    pkgs = []
     for pkg, low, high in deps:
         if not is_installed(pkg, low, high):
             if low and high:
@@ -61,8 +60,10 @@ def install():
                 cmd = f"{pkg}<={high}"
             else:
                 cmd = pkg
+            pkgs.append(cmd)
 
-            run_pip("-U", cmd)
+    if pkgs:
+        run_pip(*pkgs)
 
 
 try:

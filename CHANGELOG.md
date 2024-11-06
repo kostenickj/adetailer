@@ -1,5 +1,139 @@
 # Changelog
 
+## 2024-09-02
+
+- v24.9.0
+- Dynamic Denoising, Inpaint bbox sizing 기능 (PR #678)
+- `ad_save_images_dir` 옵션 추가 - ad 이미지를 저장하는 장소 지정 (PR #689)
+
+- forge와 관련된 버그 몇 개 수정
+- pydantic validation에 실패해도 에러를 일으키지 않고 넘어가도록 수정
+
+## 2024-08-03
+
+- v24.8.0
+- 샘플러 선택칸에 Use same sampler 옵션 추가
+- 컨트롤넷 유니온 모델을 선택할 수 있게 함
+
+- webui 1.9.0이상에서 기본 스케줄러가 설정되지 않던 문제 수정
+- issus #656의 문제 해결을 위해 v24.4.0에 적용되었던 프롬프트 표시 기능을 되돌림
+- mediapipe에서 에러가 발생하면 추론이 실패한 것으로 처리하고 조용히 넘어감
+
+## 2024-06-16
+
+- v24.6.0
+- webui 1.6.0 미만 버전을 위한 기능들을 제거하고, 최소 버전을 1.6.0으로 올림
+- 허깅페이스 연결을 체크하는데 1초만 소요되도록 함
+  - 허깅페이스 미러 (hf-mirror.com)도 체크함 (합쳐서 2초)
+- InputAccordion을 적용함
+
+## 2024-05-20
+
+- v24.5.1
+- uv를 사용하지 않게 함
+- 모든 허깅페이스 모델을 동시에 다운로드 시도함
+- 기본 탭 수를 2에서 4로 변경
+
+## 2024-05-19
+
+- v24.5.0
+- 개별 탭 활성화/비활성화 체크박스 추가
+- ad_extra_model_dir 옵션에 |로 구분된 여러 디렉토리를 추가할 수 있게 함 (PR #596)
+- `hypertile` 빌트인 확장이 지원되도록 함
+- 항상 cond 캐시를 비움
+- 설치 스크립트에 uv를 사용함
+- mediapipe 최소 버전을 올려 protobuf 버전 4를 사용하게 함
+
+## 2024-04-17
+
+- v24.4.2
+- `params.txt` 파일이 없을 때 에러가 발생하지 않도록 수정
+- 파이썬 3.9 이하에서 유니온 타입 에러 방지
+
+## 2024-04-14
+
+- v24.4.1
+- webui 1.9.0에서 발생한 에러 수정
+  - extra generation params에 callable이 들어와서 생긴 문제
+  - assign_current_image에 None이 들어갈 수 있던 문제
+- webui 1.9.0에서 변경된 scheduler 지원
+- 컨트롤넷 모델을 찾을 때, 대소문자 구분을 하지 않음 (PR #577)
+- 몇몇 기능을 스크립트에서 분리하여 별도 파일로 빼냄
+
+## 2024-04-10
+
+- v24.4.0
+- txt2img에서 hires를 설정했을 때, 이미지의 exif에서 Denoising Strength가 adetailer의 denoisiog stregnth로 덮어 쓰이는 문제 수정
+- ad prompt, ad negative prompt에 프롬프트를 변경하는 기능을 적용했을 때(와일드카드 등), 적용된 프롬프트가 이미지의 exif에 제대로 표시됨
+
+## 2024-03-29
+
+- v24.3.5
+- 알 수 없는 이유로 인페인팅을 확인하는 과정에서 Txt2Img 인스턴스가 들어오는 문제에 대한 임시 해결
+
+## 2024-03-28
+
+- v24.3.4
+- 인페인트에서, 이미지 해상도가 16의 배수가 아닐 때 사이즈 불일치로 인한 opencv 에러 방지
+
+## 2024-03-25
+
+- v24.3.3
+- webui 1.6.0 미만 버전에서 create_binary_mask 함수에 대해 ImportError가 발생하는 것 수정
+
+## 2024-03-21
+
+- v24.3.2
+- UI를 거치지 않은 입력에 대해, image_mask를 입력했을 때 opencv 에러가 발생하는 것 수정
+- img2img inpaint에서 skip img2img 옵션을 활성화할 경우, adetailer를 비활성화함
+  - 마스크 크기에 대해 해결하기 힘든 문제가 있음
+
+## 2024-03-16
+
+- v24.3.1
+- YOLO World v2, YOLO9 지원가능한 버전으로 ultralytics 업데이트
+- inpaint full res인 경우 인페인트 모드에서 동작하게 변경
+- inpaint full res가 아닌 경우, 사용자가 입력한 마스크와 교차점이 있는 마스크만 선택하여 사용함
+
+## 2024-03-01
+
+- v24.3.0
+- YOLO World 모델 추가: 가장 큰 yolov8x-world.pt 모델만 기본적으로 선택할 수 있게 함.
+- lllyasviel/stable-diffusion-webui-forge에서 컨트롤넷을 사용가능하게 함 (PR #517)
+- 기본 스크립트 목록에 soft_inpainting 추가 (https://github.com/AUTOMATIC1111/stable-diffusion-webui/pull/14208)
+
+  - 기존에 설치한 사람에게 소급적용되지는 않음
+
+- 감지모델에 대한 간단한 pytest 추가함
+- xyz grid 컨트롤넷 모델 옵션에 `Passthrough` 추가함
+
+## 2024-01-23
+
+- v24.1.2
+- controlnet 모델에 `Passthrough` 옵션 추가. 입력으로 들어온 컨트롤넷 옵션을 그대로 사용
+- fastapi 엔드포인트 추가
+
+## 2024-01-10
+
+- v24.1.1
+- SDNext 호환 업데이트 (issue #466)
+  - 설정 값 state에 초기값 추가
+  - 위젯 값을 변경할 때마다 state도 변경되게 함 (기존에는 생성 버튼을 누를 때 적용되었음)
+- `inpaint_depth_hand` 컨트롤넷 모델이 depth 모델로 인식되게 함 (issue #463)
+
+## 2024-01-04
+
+- v24.1.0
+- `depth_hand_refiner` ControlNet 추가 (PR #460)
+
+## 2023-12-30
+
+- v23.12.0
+- 파일을 인자로 추가하는 몇몇 스크립트에 대해 deepcopy의 에러를 피하기 위해 script_args 복사 방법을 변경함
+- skip img2img 기능을 사용할 때 너비, 높이를 128로 고정하여 스킵 과정이 조금 더 나아짐
+- img2img inpainting 모드에서 adetailer 자동 비활성화
+- 처음 생성된 params.txt 파일을 항상 유지하도록 변경함
+
 ## 2023-11-19
 
 - v23.11.1
@@ -59,7 +193,6 @@
 - 1.6.0 업데이트에 따라 img2img에서 사용불가능한 샘플러를 선택했을 때 더이상 Euler로 변경하지 않음
 - 유효하지 않은 인자가 전달되었을 때, 에러를 일으키지 않고 대신 adetailer를 비활성화함
 
-
 ## 2023-08-25
 
 - v23.8.1
@@ -74,7 +207,6 @@
 - Only top k largest 옵션 추가 (PR #264)
 - ultralytics 버전 업데이트
 
-
 ## 2023-07-31
 
 - v23.7.11
@@ -88,7 +220,6 @@
 - traceback에서 컬러를 없앰 (api 때문), 라이브러리 버전도 보여주게 설정.
 - huggingface_hub, pydantic을 install.py에서 없앰
 - 안쓰는 컨트롤넷 관련 코드 삭제
-
 
 ## 2023-07-23
 
@@ -197,6 +328,7 @@
   - `ad_inpaint_full_res` → `ad_inpaint_only_masked`
   - `ad_inpaint_full_res_padding` → `ad_inpaint_only_masked_padding`
 - mediapipe face mesh 모델 추가
+
   - mediapipe 최소 버전 `0.10.0`
 
 - rich traceback 제거함
@@ -226,7 +358,6 @@
 - 컨트롤넷 확장이 있으면 컨트롤넷 스크립트를 활성화함. (컨트롤넷 관련 문제 해결)
 - 모든 컴포넌트에 elem_id 설정
 - ui에 버전을 표시함
-
 
 ### 2023-05-19
 
